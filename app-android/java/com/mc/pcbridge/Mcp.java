@@ -10,13 +10,14 @@ import java.util.Map;
 /** 电脑那头 MCP 服务的客户端：sessions / session_progress / session_send / session_new / list_tasks。 */
 final class Mcp {
 
-    private final Map<String, String> headers;
+    private final Map<String, String> headers = new HashMap<>();
     private int seq = 0;
 
-    Mcp() {
-        headers = new HashMap<>();
+    /** 每次请求现取配置（用户随时可能在「设置」里改地址/令牌） */
+    private Map<String, String> headersNow() {
         headers.put("Authorization", "Bearer " + Config.MCP_TOKEN);
         headers.put("Content-Type", "application/json; charset=utf-8");
+        return headers;
     }
 
     private String call(String tool, String argsJson) throws Exception {
@@ -27,10 +28,11 @@ final class Mcp {
         Exception last = null;
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
-                String resp = Net.postJson(Config.MCP_URL, body, headers);
+                String resp = Net.postJson(Config.MCP_URL, body, headersNow());
                 return textOf(resp);
             } catch (Exception e) {
                 last = e;
+                if (String.valueOf(e.getMessage()).contains("401")) break;   // 令牌不对，重试没意义
                 try { Thread.sleep(400); } catch (InterruptedException ie) { throw e; }
             }
         }
