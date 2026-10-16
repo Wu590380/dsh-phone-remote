@@ -1,0 +1,12 @@
+[
+  { "name": "看屏幕截图", "cmd": "powershell -NoProfile -Command \"Start-Sleep 0\"; Write-Output 'OK'" },
+  { "name": "系统信息", "cmd": "Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,LastBootUpTime | Format-List; Get-Process | Sort-Object WS -Descending | Select-Object -First 12 Name,Id,@{n='MB';e={[int]($_.WS/1MB)}} | Format-Table -AutoSize" },
+  { "name": "网络/IP", "cmd": "Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -notlike '127.*'} | Select-Object IPAddress,InterfaceAlias | Format-Table -AutoSize; Get-NetTCPConnection -State Listen | Select-Object -First 25 LocalAddress,LocalPort,OwningProcess | Format-Table -AutoSize" },
+  { "name": "当前目录文件", "cmd": "Get-ChildItem -Force | Select-Object Mode,Length,LastWriteTime,Name | Format-Table -AutoSize" },
+  { "name": "dsh 会话目录", "cmd": "Get-ChildItem \"$env:USERPROFILE\\.dsh\\sessions\\--E-harness-workspace--\" -Force | Sort-Object LastWriteTime -Descending | Select-Object -First 10 LastWriteTime,Length,Name | Format-Table -AutoSize" },
+  { "name": "读指令队列", "cmd": "Get-Content .\\mobile-control\\inbox.md -Tail 20" },
+  { "name": "清空指令队列", "cmd": "Set-Content .\\mobile-control\\inbox.md -Value '' -Encoding UTF8; Write-Output 'inbox 已清空'" },
+  { "name": "抓屏存文件", "cmd": "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $vs=[System.Windows.Forms.SystemInformation]::VirtualScreen; $b=New-Object System.Drawing.Bitmap($vs.Width,$vs.Height); $g=[System.Drawing.Graphics]::FromImage($b); $g.CopyFromScreen($vs.X,$vs.Y,0,0,$b.Size); $g.Dispose(); $p=\".\\mobile-control\\shot-$(Get-Date -Format yyyyMMdd-HHmmss).jpg\"; $b.Save($p,[System.Drawing.Imaging.ImageFormat]::Jpeg); $b.Dispose(); Write-Output \"已保存 $p\"" },
+  { "name": "锁屏", "cmd": "rundll32.exe user32.dll,LockWorkStation; Write-Output '已锁屏'" },
+  { "name": "音量静音切换", "cmd": "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait([char]173); Write-Output 'toggled'" }
+]

@@ -1,0 +1,55 @@
+# ---- 密钥 / 凭据（绝不入库）----
+qr-*.png
+*token*.txt
+token.txt
+fixed-urls.txt
+panel-url.txt
+pc-dsh-url.txt
+mcp-public-url.txt
+pc-public-url.txt
+qr-public.txt
+qr-pc.txt
+qr-panel.txt
+qr-pc-desktop.txt
+pocket-info.txt
+*.credential*
+.credentials.yaml
+
+# ---- 运行期数据 / 链接目录 ----
+dsh-web-desktop/
+dsh-home/
+sessions/
+attachments/
+node_modules/
+
+# ---- 日志与临时产物 ----
+*.log
+_*
+_sl_utf8.json
+workspace.json.bak-*
+
+# ---- 构建中间产物（保留根目录的 pc-dsh.apk 作为交付物）----
+app-android/build/
+app-android/*.dex
+app-android/*.apk.id-sig
+app-android/*.keystore
+
+# ---- 系统 ----
+Thumbs.db
+desktop.ini
+.DS_Store
+qr-*.png
+# ---- 派活服务的运行期数据（会含任务内容/历史，不入库）----
+tasks/queue.json
+tasks/prompts/
+tasks/home/
+tasks/dispatcher.log
+tasks/disp.*.log
+tasks/session-map.json
+tasks/session-new-recent.json
+
+# ---- 本地密钥与构建产物 ----
+secrets.local.json
+*.apk
+*.apk.idsig
+debug.keystore

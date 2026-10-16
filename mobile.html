@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>dsh 手机派活台</title>
+<style>
+  :root{ --bg:#0d1117; --panel:#161b22; --line:#283040; --fg:#e6edf3; --dim:#8b949e;
+         --ok:#3fb950; --warn:#d29922; --bad:#f85149; --acc:#2f81f7; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--fg); overflow-x:hidden;
+    font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif; overscroll-behavior:none; }
+  body{ display:flex; flex-direction:column; height:100vh; height:100dvh; width:100%; }
+  header{ display:flex; align-items:center; gap:8px; padding:7px 10px; background:var(--panel); border-bottom:1px solid var(--line); flex:0 0 auto; overflow:hidden; }
+  header .dot{ width:9px;height:9px;border-radius:50%;background:var(--bad); flex:0 0 auto; }
+  header .dot.on{ background:var(--ok); }
+  header .t{ font-weight:600; flex:0 0 auto; }
+  header .meta{ margin-left:auto; color:var(--dim); font-size:11px; text-align:right; flex:0 1 auto; min-width:0;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #tabs{ display:flex; background:var(--panel); border-bottom:1px solid var(--line); flex:0 0 auto; }
+  #tabs button{ flex:1 1 0; min-width:0; border:0; background:transparent; color:var(--dim); padding:10px 0; font-size:13px; font-weight:600; border-bottom:2px solid transparent; }
+  #tabs button.on{ color:var(--fg); border-bottom-color:var(--acc); }
+  .pane{ flex:1 1 auto; display:none; flex-direction:column; min-height:0; min-width:0; overflow:hidden; }
+  .pane.on{ display:flex; }
+
+  /* ---------- 任务 ---------- */
+  #compose{ flex:0 0 auto; padding:8px; background:var(--panel); border-bottom:1px solid var(--line); }
+  #prompt{ width:100%; min-height:66px; max-height:26vh; resize:vertical; background:#0d1117; color:var(--fg);
+    border:1px solid var(--line); border-radius:10px; padding:9px; font-size:14px; font-family:inherit; }
+  #row2{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; align-items:center; }
+  #workdir{ flex:1 1 100%; min-width:0; background:#0d1117; color:var(--dim); border:1px solid var(--line);
+    border-radius:8px; padding:8px; font-size:12px; font-family:ui-monospace,Consolas,monospace; }
+  #row2 button{ flex:1 1 0; min-width:0; padding:9px 10px; }
+  #row2 .btnrow{ display:flex; gap:6px; flex:1 1 100%; }
+  #send{ background:var(--acc); border-color:var(--acc); color:#fff; }
+  #list{ flex:1 1 auto; overflow:auto; min-width:0; padding:8px; -webkit-overflow-scrolling:touch; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; margin-bottom:8px; overflow:hidden; }
+  .card .head{ display:flex; align-items:center; gap:6px; padding:8px 10px; min-width:0; }
+  .card .badge{ font-size:11px; padding:1px 7px; border-radius:20px; border:1px solid var(--line); flex:0 0 auto; }
+  .card .badge.done{ color:#7ee787; border-color:#1f6f36; }
+  .card .badge.running{ color:#ffd479; border-color:#7a5b16; }
+  .card .badge.pending{ color:var(--dim); }
+  .card .badge.failed,.card .badge.timeout,.card .badge.stopped{ color:#ff9c94; border-color:#7a2b26; }
+  .card .title{ flex:1 1 auto; min-width:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card .when{ color:var(--dim); font-size:11px; flex:0 0 auto; }
+  .card .meta{ padding:0 10px 6px; color:var(--dim); font-size:11px; overflow-wrap:anywhere; }
+  .card .out{ max-height:44vh; overflow:auto; margin:0; padding:8px 10px; background:#0b0f14; border-top:1px solid var(--line);
+    font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11.5px; white-space:pre-wrap; overflow-wrap:anywhere; display:none; }
+  .card.open .out{ display:block; }
+  .card .acts{ display:flex; flex-wrap:wrap; gap:6px; padding:6px 10px; border-top:1px solid var(--line); }
+  .card .acts button{ padding:6px 9px; font-size:11.5px; font-weight:500; }
+  button{ background:#21262d; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:9px 11px; font-size:12.5px; font-weight:600; }
+  button:active{ background:#30363d; }
+  button.warn{ background:#3d1d1d; border-color:#5c2a2a; color:#ffb4ad; }
+  .empty{ color:var(--dim); text-align:center; padding:26px 12px; }
+
+  /* ---------- 屏幕 ---------- */
+  #view{ flex:1 1 auto; overflow:auto; background:#000; position:relative; touch-action:none; }
+  #stage{ position:relative; min-width:100%; min-height:100%; display:flex; align-items:center; justify-content:center; }
+  #screen{ display:block; width:100%; user-select:none; pointer-events:none; }
+  #cross{ position:fixed; width:26px;height:26px; border:2px solid var(--acc); border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; opacity:0; transition:opacity .15s; z-index:5; }
+  #cross.on{ opacity:.9; }
+  #hud{ position:absolute; left:6px; top:6px; background:rgba(0,0,0,.55); color:#c9d1d9; font-size:10px; padding:2px 6px; border-radius:6px; pointer-events:none; }
+  .bar{ display:flex; align-items:center; gap:6px; padding:5px 8px; background:var(--panel); border-top:1px solid var(--line); flex:0 0 auto; flex-wrap:wrap; }
+  .bar .lbl{ color:var(--dim); font-size:11px; }
+  input[type=range]{ flex:1 1 80px; accent-color:var(--acc); }
+  #keys{ display:flex; flex-wrap:wrap; gap:5px; padding:5px 8px; background:var(--panel); border-top:1px solid var(--line); flex:0 0 auto; }
+  #keys button{ padding:7px 9px; font-weight:500; min-width:44px; }
+  #send2,#sendrow{ display:flex; gap:6px; padding:6px 8px; background:var(--panel); border-top:1px solid var(--line); flex:0 0 auto; }
+  #text,#cmd{ flex:1 1 auto; background:#0d1117; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:9px 10px; font-size:13px; }
+  #cmd{ color:#d2a8ff; font-family:ui-monospace,Consolas,monospace; }
+  #presets{ display:flex; flex-wrap:wrap; gap:5px; padding:5px 8px 0; flex:0 0 auto; }
+  #log{ flex:0 0 auto; height:20vh; min-height:96px; overflow:auto; background:#0b0f14; border-top:1px solid var(--line); padding:6px 8px;
+    font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; white-space:pre-wrap; word-break:break-all; }
+  #log .c{ color:#79c0ff; } #log .e{ color:#ff7b72; } #log .d{ color:#7ee787; } #log .m{ color:var(--dim); }
+  .toast{ position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:#21262d; border:1px solid var(--line);
+    padding:8px 14px; border-radius:20px; font-size:12px; z-index:20; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.on{ opacity:1; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="dot" id="dot"></span>
+  <span class="t">dsh 派活台</span>
+  <span class="meta" id="meta">连接中…</span>
+</header>
+
+<div id="tabs">
+  <button data-pane="tasks" class="on">任务</button>
+  <button data-pane="screen">屏幕</button>
+  <button data-pane="dsh">dsh</button>
+</div>
+
+<!-- ============ 任务 ============ -->
+<section class="pane on" id="pane-tasks">
+  <div id="compose">
+    <textarea id="prompt" placeholder="给电脑上的 dsh 派活：想让它做什么？例如「把 README 里的过时链接全部找出来并修正，改完跑一遍自测」"></textarea>
+    <div id="row2">
+      <input id="workdir" placeholder="工作目录（默认 E:\harness-workspace）">
+      <button id="send">派活</button>
+      <button id="refreshTasks">刷新</button>
+    </div>
+  </div>
+  <div id="list"><div class="empty">还没有任务。<br>在上面写一句话，点「派活」，电脑上的 dsh 会立刻开始干。</div></div>
+</section>
+
+<!-- ============ 屏幕 ============ -->
+<section class="pane" id="pane-screen">
+  <div id="view">
+    <div id="stage">
+      <img id="screen" alt="屏幕">
+      <div id="hud">等待画面…</div>
+    </div>
+  </div>
+  <div id="cross"></div>
+  <div class="bar">
+    <span class="lbl">缩放</span>
+    <input type="range" id="zoom" min="100" max="600" value="100">
+    <span class="lbl" id="zoomv">100%</span>
+    <button id="fit">自适应</button>
+    <button id="shot">刷新</button>
+  </div>
+  <div id="keys">
+    <button data-keys="{ENTER}">回车</button>
+    <button data-keys="{ESC}">Esc</button>
+    <button data-keys="{TAB}">Tab</button>
+    <button data-keys="{BACKSPACE}">退格</button>
+    <button data-keys=" ">空格</button>
+    <button data-keys="^{c}">复制</button>
+    <button data-keys="^{v}">粘贴</button>
+    <button data-keys="^{a}">全选</button>
+    <button data-keys="%{F4}">关窗</button>
+    <button id="right">右键</button>
+    <button id="wheelup">↑滚</button>
+    <button id="wheeldown">↓滚</button>
+    <button id="vkey">键盘</button>
+    <button id="kill" class="warn">杀命令</button>
+  </div>
+  <div id="send2">
+    <input id="text" placeholder="打字到电脑光标处（中文可直接用）">
+    <button id="typing" style="background:var(--acc);border-color:var(--acc);color:#fff">输入</button>
+  </div>
+  <div id="presets"></div>
+  <div id="sendrow">
+    <input id="cmd" placeholder="直接在这台电脑上执行 PowerShell 命令，回车发送">
+    <button id="run">执行</button>
+    <button id="inbox">入队</button>
+  </div>
+  <div id="log"></div>
+</section>
+
+<!-- ============ dsh 网页 ============ -->
+<section class="pane" id="pane-dsh">
+  <div class="bar" style="border-top:0">
+    <button id="openDsh" style="background:var(--acc);border-color:var(--acc);color:#fff">打开完整 dsh 网页</button>
+    <button id="openTasks">看任务会话</button>
+  </div>
+  <div id="list" style="flex:1 1 auto; overflow:auto; padding:8px; color:var(--dim); font-size:12px; line-height:1.7">
+    <p><b style="color:var(--fg)">手机上可以用两种方式指挥电脑上的 dsh：</b></p>
+    <p>1. <b style="color:var(--fg)">任务派活</b>（本页第一个标签）：一句话交给 dsh，它在电脑上跑完把结果送回来；每个任务是一个独立 dsh 会话，随时能在网页里接着追问。</p>
+    <p>2. <b style="color:var(--fg)">完整 dsh 网页</b>：点上面的按钮，就是电脑上那套完整界面（会话、轨迹、工作区、插件），可以新建会话、看它一步步干活。</p>
+    <p>派出去的每个任务都会出现在 dsh 网页的会话历史里，标题就是任务名，点进去可以继续对话。</p>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var TOKEN = '__TOKEN__';
+  var $ = function(s){ return document.querySelector(s); };
+  var dot = $('#dot'), meta = $('#meta'), toastEl = $('#toast');
+  var connected = false, fpsT = Date.now(), frames = 0, taskWs = null;
+
+  function toast(t){ toastEl.textContent = t; toastEl.classList.add('on'); clearTimeout(toast._t);
+    toast._t = setTimeout(function(){ toastEl.classList.remove('on'); }, 1700); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+    return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[c]; }); }
+  function api(p, body, method){
+    return fetch(p + (p.indexOf('?') >= 0 ? '&' : '?') + 't=' + encodeURIComponent(TOKEN), {
+      method: method || (body ? 'POST' : 'GET'),
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    }).then(function(r){ return r.json(); });
+  }
+
+  /* ------------------------------ 标签切换 ------------------------------ */
+  Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function(b){
+    b.addEventListener('click', function(){
+      Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function(x){ x.classList.remove('on'); });
+      Array.prototype.forEach.call(document.querySelectorAll('.pane'), function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      $('#pane-' + b.getAttribute('data-pane')).classList.add('on');
+      if (b.getAttribute('data-pane') === 'screen') applyZoom();
+    });
+  });
+
+  /* ================================ 任务 ================================ */
+  var tasks = {};
+  var STATUS = { pending:'排队中', running:'执行中', done:'已完成', failed:'失败', stopped:'已停止', timeout:'超时' };
+  var listEl = $('#list');
+
+  function fmtTime(ts){
+    if (!ts) return '';
+    var d = new Date(ts), p = function(n){ return n < 10 ? '0' + n : '' + n; };
+    return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function cardHtml(t){
+    var st = STATUS[t.status] || t.status;
+    var open = t.status === 'running' || t.status === 'pending';
+    return '<div class="card ' + (open ? 'open' : '') + '" id="card-' + t.id + '">' +
+      '<div class="head"><span class="badge ' + t.status + '">' + st + '</span>' +
+      '<span class="title">' + esc(t.title) + '</span>' +
+      '<span class="when">' + (t.elapsed ? t.elapsed + 's' : fmtTime(t.createdAt)) + '</span></div>' +
+      '<div class="meta">' + esc(t.workdir) + (t.exitCode === null || t.exitCode === undefined ? '' : ' · 退出码 ' + t.exitCode) +
+      (t.error ? ' · ' + esc(t.error) : '') + '</div>' +
+      '<pre class="out" id="out-' + t.id + '"></pre>' +
+      '<div class="acts">' +
+      '<button data-act="toggle" data-id="' + t.id + '">展开/收起</button>' +
+      '<button data-act="again" data-id="' + t.id + '">再派一次</button>' +
+      (t.status === 'running' ? '<button class="warn" data-act="stop" data-id="' + t.id + '">停止</button>' : '') +
+      (t.status === 'running' || t.status === 'pending' ? '' : '<button class="warn" data-act="del" data-id="' + t.id + '">删除</button>') +
+      '</div></div>';
+  }
+  function renderList(){
+    var arr = Object.keys(tasks).map(function(k){ return tasks[k]; })
+      .sort(function(a, b){ return (b.createdAt || 0) - (a.createdAt || 0); });
+    if (!arr.length){ listEl.innerHTML = '<div class="empty">还没有任务。<br>在上面写一句话，点「派活」。</div>'; return; }
+    listEl.innerHTML = arr.map(cardHtml).join('');
+  }
+  function upsert(t, keepScroll){
+    var old = tasks[t.id];
+    tasks[t.id] = Object.assign({}, old || {}, t);
+    if (!old){ renderList(); return; }
+    var card = document.getElementById('card-' + t.id);
+    if (!card){ renderList(); return; }
+    var sc = listEl.scrollTop;
+    if (old.status !== t.status){
+      renderList();
+    } else {
+      var badge = card.querySelector('.badge');
+      if (badge){ badge.textContent = STATUS[t.status] || t.status; }
+      var when = card.querySelector('.when');
+      if (when && t.elapsed) when.textContent = t.elapsed + 's';
+    }
+    if (keepScroll !== false) listEl.scrollTop = sc;
+  }
+  function appendOut(id, chunk){
+    var pre = document.getElementById('out-' + id);
+    if (!pre) { upsert(tasks[id] || { id: id }, false); pre = document.getElementById('out-' + id); }
+    if (!pre) return;
+    pre.textContent += chunk;
+    if (pre.scrollHeight - pre.scrollTop - pre.clientHeight < 60) pre.scrollTop = pre.scrollHeight;
+  }
+
+  listEl.addEventListener('click', function(ev){
+    var b = ev.target.closest('button[data-act]');
+    if (!b) return;
+    var id = b.getAttribute('data-id'), act = b.getAttribute('data-act');
+    var card = document.getElementById('card-' + id);
+    if (act === 'toggle'){ card.classList.toggle('open'); }
+    else if (act === 'stop'){ api('/dispatch/api/task/stop', { id: id }).then(function(r){ toast(r.ok ? '已请求停止' : (r.error || '失败')); }); }
+    else if (act === 'del'){ api('/dispatch/api/task/delete', { id: id }).then(function(r){ if (r.ok){ delete tasks[id]; renderList(); toast('已删除'); } else toast(r.error || '失败'); }); }
+    else if (act === 'again'){
+      var t = tasks[id];
+      api('/dispatch/api/task', { prompt: t.prompt, workdir: t.workdir, title: t.title + '(重跑)' }).then(function(r){
+        if (r.ok){ toast('已重新派活'); upsert(r.task); }
+      });
+    }
+  });
+
+  $('#send').addEventListener('click', function(){
+    var v = $('#prompt').value.trim();
+    if (!v){ toast('先写点什么'); return; }
+    var wd = $('#workdir').value.trim();
+    $('#send').textContent = '派活中…';
+    api('/dispatch/api/task', { prompt: v, workdir: wd || undefined }).then(function(r){
+      $('#send').textContent = '派活';
+      if (!r.ok){ toast(r.error || '派活失败'); return; }
+      $('#prompt').value = '';
+      upsert(r.task);
+      toast('已交给电脑上的 dsh');
+      var pre = document.getElementById('out-' + r.task.id);
+      if (taskWs && taskWs.readyState === 1) taskWs.send(JSON.stringify({ type: 'watch', id: r.task.id }));
+      loadLog(r.task.id);
+    }).catch(function(){ $('#send').textContent = '派活'; toast('网络错误'); });
+  });
+  $('#refreshTasks').addEventListener('click', function(){ loadTasks(); toast('已刷新'); });
+
+  function loadTasks(){
+    return api('/dispatch/api/tasks?limit=40').then(function(r){
+      if (!r.ok){ return; }
+      var fresh = {};
+      r.tasks.forEach(function(t){ fresh[t.id] = t; });
+      tasks = fresh;
+      renderList();
+      Object.keys(tasks).forEach(function(id){
+        if (tasks[id].status === 'running' || !tasks[id].loaded) loadLog(id);
+      });
+    }).catch(function(){});
+  }
+  function loadLog(id){
+    api('/dispatch/api/task/log?id=' + id).then(function(r){
+      if (!r.ok) return;
+      var pre = document.getElementById('out-' + id);
+      if (pre){ pre.textContent = r.text; pre.scrollTop = pre.scrollHeight; }
+      if (tasks[id]) tasks[id].loaded = true;
+    }).catch(function(){});
+  }
+
+  function connectTaskWs(){
+    var url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/dispatch/ws?t=' + encodeURIComponent(TOKEN);
+    try { taskWs = new WebSocket(url); } catch (e){ setTimeout(connectTaskWs, 3000); return; }
+    taskWs.onmessage = function(ev){
+      var m; try { m = JSON.parse(ev.data); } catch(e){ return; }
+      if (m.type === 'init'){ if (m.tasks && m.tasks.length && !Object.keys(tasks).length){ m.tasks.forEach(function(t){ tasks[t.id] = t; }); renderList(); } return; }
+      if (m.type !== 'task') return;
+      if (m.action === 'output') appendOut(m.id, m.chunk);
+      else if (m.action === 'snapshot'){ appendOut(m.id, ''); var pre = document.getElementById('out-' + m.id); if (pre) pre.textContent = m.text; }
+      else if (m.action === 'deleted'){ delete tasks[m.id]; renderList(); }
+      else if (m.task) upsert(m.task);
+    };
+    taskWs.onclose = function(){ setTimeout(connectTaskWs, 2500); };
+    taskWs.onerror = function(){};
+  }
+
+  /* ================================ 屏幕 ================================ */
+  var img = $('#screen'), view = $('#view'), stage = $('#stage'), cross = $('#cross'), hud = $('#hud');
+  var NAT = { w: 1536, h: 960 };
+  var zoom = 1, panx = 0, pany = 0, linkReady = false;
+  var ws = null, lastFrameTs = 0;
+
+  function pct(n){ return Math.round(n * 100) + '%'; }
+  function wsUrl(){
+    return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws?t=' + encodeURIComponent(TOKEN);
+  }
+  function connect(){
+    try { ws = new WebSocket(wsUrl()); } catch (e){ setTimeout(connect, 2000); return; }
+    ws.onopen = function(){ connected = true; dot.classList.add('on'); };
+    ws.onclose = function(){ connected = false; dot.classList.remove('on'); setTimeout(connect, 1500); };
+    ws.onerror = function(){};
+    ws.onmessage = function(ev){
+      var msg; try { msg = JSON.parse(ev.data); } catch(e){ return; }
+      if (msg.type === 'frame'){
+        img.src = 'data:image/jpeg;base64,' + msg.jpg;
+        NAT.w = msg.w; NAT.h = msg.h; lastFrameTs = msg.ts; frames++;
+        hud.textContent = NAT.w + '×' + NAT.h;
+        applyZoom();
+      } else if (msg.type === 'cmd'){
+        if (msg.phase === 'start') addLog('▶ ' + (msg.label ? '[' + msg.label + '] ' : '') + msg.cmd, 'c');
+        else if (msg.phase === 'out') addLog(msg.chunk.replace(/\s+$/, ''), '');
+        else if (msg.phase === 'end') addLog('✓ 结束 code=' + msg.code + ' 用时 ' + (msg.ms/1000).toFixed(1) + 's', msg.code === 0 ? 'd' : 'e');
+      }
+    };
+  }
+  var logEl = $('#log');
+  function addLog(text, cls){ var s = document.createElement('span'); s.className = cls || ''; s.textContent = text + '\n';
+    logEl.appendChild(s); logEl.scrollTop = logEl.scrollHeight;
+    while (logEl.childNodes.length > 300) logEl.removeChild(logEl.firstChild); }
+
+  function applyZoom(){
+    var vw = view.clientWidth;
+    if (!vw) return;
+    var vh = view.clientHeight;
+    img.style.width = zoom <= 1 ? '100%' : (vw * zoom) + 'px';
+    img.style.maxWidth = 'none';
+    stage.style.width = Math.max(vw, vw * zoom) + 'px';
+    if (zoom <= 1){ view.scrollLeft = 0; view.scrollTop = 0; }
+  }
+  $('#zoom').addEventListener('input', function(e){ zoom = parseInt(e.target.value, 10) / 100; $('#zoomv').textContent = pct(zoom); applyZoom(); });
+  $('#fit').addEventListener('click', function(){ zoom = 1; $('#zoom').value = 100; $('#zoomv').textContent = '100%'; applyZoom(); });
+  $('#shot').addEventListener('click', function(){ if (connected) ws.send(JSON.stringify({ type:'shot' })); else api('/api/shot.jpg'); });
+
+  function toScreen(ev){
+    var r = img.getBoundingClientRect();
+    var sx = NAT.w / r.width, sy = NAT.h / r.height;
+    return { x: Math.max(0, Math.min(NAT.w - 1, Math.round((ev.clientX - r.left) * sx))),
+             y: Math.max(0, Math.min(NAT.h - 1, Math.round((ev.clientY - r.top) * sy))) };
+  }
+  function sendInput(payload){
+    if (connected) ws.send(JSON.stringify({ type: 'input', payload: payload }));
+    else api('/api/input', payload);
+  }
+  function showCross(ev){ cross.style.left = ev.clientX + 'px'; cross.style.top = ev.clientY + 'px'; cross.classList.add('on'); }
+
+  var pts = {}, active = null, moved = 0, startT = 0, lastMove = 0, lastPos = null, longTimer = null, isDown = false;
+
+  view.addEventListener('pointerdown', function(ev){
+    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+    pts[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
+    try { view.setPointerCapture(ev.pointerId); } catch(e){}
+    if (Object.keys(pts).length === 1){
+      active = ev.pointerId; moved = 0; startT = Date.now(); lastPos = toScreen(ev); showCross(ev);
+      clearTimeout(longTimer);
+      longTimer = setTimeout(function(){ if (moved < 10 && !isDown){ sendInput({ action:'rightclick', x:lastPos.x, y:lastPos.y }); toast('右键'); moved = -1; } }, 520);
+    }
+  }, { passive: true });
+
+  view.addEventListener('pointermove', function(ev){
+    if (!(ev.pointerId in pts)) return;
+    var prev = pts[ev.pointerId];
+    var dx = ev.clientX - prev.x, dy = ev.clientY - prev.y;
+    pts[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
+    showCross(ev);
+    if (Object.keys(pts).length >= 2){
+      var ids = Object.keys(pts), a = pts[ids[0]], b = pts[ids[1]];
+      var dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (window._pd){ var dd = dist - window._pd; if (Math.abs(dd) > 6){ sendInput({ action:'scroll', dy: dd > 0 ? 1 : -1 }); window._pd = dist; } }
+      else window._pd = dist;
+      if (zoom > 1){ view.scrollLeft -= dx; view.scrollTop -= dy; }
+      return;
+    }
+    window._pd = null;
+    moved += Math.abs(dx) + Math.abs(dy);
+    if (moved < 12) return;
+    var now = Date.now();
+    if (now - lastMove < 45) return;
+    lastMove = now;
+    var s = toScreen(ev); lastPos = s;
+    sendInput({ action: 'move', x: s.x, y: s.y });
+  }, { passive: true });
+
+  function endPoint(ev){
+    var had = (ev.pointerId in pts);
+    delete pts[ev.pointerId]; window._pd = null;
+    if (!had || ev.pointerId !== active) return;
+    active = null; clearTimeout(longTimer);
+    if (moved > 12 && moved !== -1) return;
+    if (moved === -1) return;
+    var s = toScreen(ev);
+    sendInput({ action: 'click', x: s.x, y: s.y });
+  }
+  view.addEventListener('pointerup', endPoint, { passive: true });
+  view.addEventListener('pointercancel', endPoint, { passive: true });
+  view.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+
+  Array.prototype.forEach.call(document.querySelectorAll('#keys button[data-keys]'), function(b){
+    b.addEventListener('click', function(){ sendInput({ action:'keys', keys: b.getAttribute('data-keys') }); });
+  });
+  $('#right').addEventListener('click', function(){ if (lastPos) sendInput({ action:'rightclick', x:lastPos.x, y:lastPos.y }); toast('右键'); });
+  $('#wheelup').addEventListener('click', function(){ sendInput({ action:'scroll', dy: 3 }); });
+  $('#wheeldown').addEventListener('click', function(){ sendInput({ action:'scroll', dy: -3 }); });
+  $('#vkey').addEventListener('click', function(){ var t = prompt('要输入到电脑的文字：', ''); if (t) sendInput({ action:'text', text: t }); });
+  $('#kill').addEventListener('click', function(){ if (!confirm('终止正在执行的命令？')) return; api('/api/kill', {}).then(function(){ toast('已请求终止'); }); });
+
+  $('#typing').addEventListener('click', function(){ var t = $('#text').value; if (!t) return;
+    sendInput({ action:'text', text: t }); $('#text').value = ''; toast('已发送到电脑'); });
+  $('#text').addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); $('#typing').click(); } });
+
+  function runCmd(text, label){
+    if (!text) return;
+    addLog('▶ [' + (label || '手机下发') + '] ' + text, 'c');
+    if (connected) ws.send(JSON.stringify({ type:'run', cmd: text, label: label || '手机下发' }));
+    else api('/api/run', { cmd: text, label: label || '手机下发' }).then(function(r){ if (!r.ok) addLog('[错误] ' + r.error, 'e'); });
+  }
+  $('#run').addEventListener('click', function(){ var v = $('#cmd').value.trim(); if (!v) return; runCmd(v); $('#cmd').value = ''; });
+  $('#cmd').addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); $('#run').click(); } });
+  $('#inbox').addEventListener('click', function(){ var v = $('#cmd').value.trim(); if (!v) return;
+    api('/api/inbox', { text: v }).then(function(r){ addLog(r.ok ? ('✓ 已写入指令队列') : ('[错误] ' + r.error), r.ok ? 'd' : 'e'); $('#cmd').value = ''; }); });
+
+  api('/api/presets').then(function(r){
+    (r.presets || []).forEach(function(p){
+      var b = document.createElement('button'); b.textContent = p.name;
+      b.addEventListener('click', function(){ runCmd(p.cmd, p.name); });
+      $('#presets').appendChild(b);
+    });
+  });
+
+  /* ============================== dsh 网页 ============================== */
+  var dshPort = 19391;
+  $('#openDsh').addEventListener('click', function(){ window.open(location.protocol + '//' + location.hostname + ':' + dshPort + '/', '_blank'); });
+  $('#openTasks').addEventListener('click', function(){ window.open(location.protocol + '//' + location.hostname + ':' + dshPort + '/', '_blank'); });
+
+  /* =============================== 状态栏 =============================== */
+  setInterval(function(){
+    var dt = (Date.now() - fpsT) / 1000; var fps = frames / Math.max(0.001, dt);
+    if (dt > 3){ frames = 0; fpsT = Date.now(); }
+    api('/api/status').then(function(s){
+      if (!s || !s.ok) return;
+      if (s.relayPort) dshPort = s.relayPort;
+      meta.textContent = s.screen.w + '×' + s.screen.h + ' · ' + fps.toFixed(1) + 'fps' +
+        (s.running ? ' · 命令中' : '');
+    }).catch(function(){});
+  }, 3000);
+
+  /* ================================ 启动 ================================ */
+  $('#workdir').placeholder = '工作目录（默认 E:\\harness-workspace）';
+  loadTasks();
+  connectTaskWs();
+  connect();
+  applyZoom();
+  window.addEventListener('resize', applyZoom);
+  setInterval(function(){
+    var hasRunning = Object.keys(tasks).some(function(k){ return tasks[k].status === 'running' || tasks[k].status === 'pending'; });
+    if (hasRunning) loadTasks();
+  }, 6000);
+})();
+</script>
+</body>
+</html>
