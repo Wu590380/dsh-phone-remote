@@ -123,7 +123,12 @@ public class MainActivity extends Activity {
 
         setContentView(root);
         applyLayout();
-        refreshSessions();
+        Config.load(this);
+        if (!Config.isConfigured()) {
+            ui.postDelayed(this::showSetupDialog, 400);
+        } else {
+            refreshSessions();
+        }
     }
 
     /** 隐藏手机状态栏与导航栏（沉浸式），把空间全给画面 */
@@ -220,6 +225,8 @@ public class MainActivity extends Activity {
             if (panelDetail.getVisibility() == View.VISIBLE) reloadDetail();
             else refreshSessions();
         }));
+        bar.addView(smallBtn("设置", this::showSetupDialog));
+
         return bar;
     }
 
@@ -575,6 +582,55 @@ public class MainActivity extends Activity {
             }
         });
     }
+    /** 首次运行（或未配置）时的设置框：填自己的 MCP / 面板地址与令牌 */
+    private void showSetupDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        box.setPadding(pad, pad, pad, pad);
+
+        TextView tip = new TextView(this);
+        tip.setText("填你自己电脑的地址与令牌（填一次即可，存在本机）：\n· MCP：手机给电脑下指令用的接口\n· 面板：电脑屏幕画面与触控");
+        tip.setTextSize(13);
+        tip.setTextColor(Color.parseColor("#555555"));
+        box.addView(tip);
+
+        final EditText eMcp = field(box, "MCP 地址（如 https://mcp.你的域名/mcp）", Config.MCP_URL);
+        final EditText eMcpTok = field(box, "MCP 令牌", Config.MCP_TOKEN);
+        final EditText ePanel = field(box, "面板地址（如 https://panel.你的域名）", Config.PANEL_URL);
+        final EditText ePanelTok = field(box, "面板令牌", Config.PANEL_TOKEN);
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("连接设置")
+                .setView(box)
+                .setCancelable(false)
+                .setPositiveButton("保存并连接", (d, w) -> {
+                    Config.save(this, eMcp.getText().toString(), eMcpTok.getText().toString(),
+                            ePanel.getText().toString(), ePanelTok.getText().toString());
+                    toast("已保存，开始连接电脑…");
+                    stopScreen();
+                    stopPolling();
+                    startScreen();
+                    refreshSessions();
+                })
+                .setNegativeButton("稍后", (d, w) -> toast("未配置；右上角「设置」可随时再填"))
+                .show();
+    }
+
+    private EditText field(LinearLayout box, String hint, String value) {
+        EditText e = new EditText(this);
+        e.setHint(hint);
+        e.setTextColor(Color.parseColor("#222222"));
+        e.setHintTextColor(Color.parseColor("#888888"));
+        e.setTextSize(14);
+        if (value != null && !value.startsWith("YOUR_") && !value.contains("example.com")) e.setText(value);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(6);
+        box.addView(e, lp);
+        return e;
+    }
+
     private void hint(String msg) {
         sessionsBox.removeAllViews();
         TextView t = new TextView(this);

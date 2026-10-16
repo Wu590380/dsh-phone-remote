@@ -1,4 +1,4 @@
-# 免 Gradle 构建「电脑 dsh」APK：aapt2 + javac + d8 + zipalign + apksigner
+﻿# 免 Gradle 构建「电脑 dsh」APK：aapt2 + javac + d8 + zipalign + apksigner
 # 依赖：JDK 21（已装）、Android SDK 组件（E:\android-sdk：platforms;android-32 + build-tools;32.0.0）
 $ErrorActionPreference = 'Continue'
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8

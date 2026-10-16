@@ -53,3 +53,7 @@ secrets.local.json
 *.apk
 *.apk.idsig
 debug.keystore
+
+# 允许发布占位符版 APK（不含任何凭据，可公开下载）
+!pc-dsh.apk
+app-android/pc-dsh.apk

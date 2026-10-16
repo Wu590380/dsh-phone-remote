@@ -1,3 +1,16 @@
+## 直接下载安装 APK
+
+仓库根目录的 **pc-dsh.apk** 是**占位符版**（不含任何凭据，安全可公开）。安装后**首次运行会弹出设置框**，填上你自己的四项即可：
+
+| 项 | 例子 | 从哪来 |
+| --- | --- | --- |
+| MCP 地址 | https://mcp.你的域名/mcp | 隧道里指向 19395 的那条 |
+| MCP 令牌 | 一串 hex | mobile-control\mcp-token.txt |
+| 面板地址 | https://panel.你的域名 | 隧道里指向 19390 的那条 |
+| 面板令牌 | 一串 hex | mobile-control\token.txt |
+
+填一次存在本机（SharedPreferences），顶栏「设置」可随时修改。
+想直接构建一个自带凭据的 APK（免手填），就建 secrets.local.json 再跑 app-android\build.ps1。
 > **公开仓库说明（重要）**
 > 本仓库已脱敏：所有 token、隧道域名、本机用户名都换成了占位符（`YOUR_MCP_TOKEN` / `example.com` / `your-user`）。
 > 想真正跑起来，请在**本目录**建一个 `secrets.local.json`（已在 `.gitignore`，不会入库）：
