@@ -2,11 +2,19 @@
   stack.ps1 —— 手机远控服务：体检 / 拉起 / 自愈
   用法：
     powershell -File tools\stack.ps1 -Status   只看状态
-    powershell -File tools\stack.ps1 -Up       缺什么补什么（幂等）
-  依赖：桌面 App(19387，需手动开着) → agent(19390/19391) → dispatcher(19392, agent 自动拉) → MCP(19395) → cloudflared 隧道
+    powershell -File tools\stack.ps1 -Up       缺什么补什么（幂等；**要求 dsh 已打开**）
+    powershell -File tools\stack.ps1 -Up -Force  不管 dsh 在不在，强制拉起（手动排障用）
+  依赖：桌面 App(19387，需你自己打开) → agent(19390/19391) → dispatcher(19392, agent 自动拉) → MCP(19395) → cloudflared 隧道
+  策略：**只有 dsh 在跑时才拉起后台**（不开机自启）。dsh 关着时这个脚本只体检、不动手。
   注意：服务必须用 WMI 脱离父进程启动，否则调用者一退出就会被连带杀掉。
 #>
-param([switch]$Up, [switch]$Status)
+param(
+  [switch]$Up,
+  [switch]$Status,
+  [switch]$Force,
+  [string]$RequireDsh = 'DeepSeek Harness',
+  [switch]$IgnorePort   # 测试用：只看进程名，不看 19387 端口
+)
 
 $ErrorActionPreference = 'Continue'
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -93,6 +101,20 @@ function Report {
 }
 
 if ($Status -and -not $Up) { [void](Report); exit 0 }
+
+# 关键策略：只有 dsh 在跑时才拉起后台（按用户要求，不做开机自启）
+function DshRunning {
+  $p = Get-Process -Name $RequireDsh -ErrorAction SilentlyContinue
+  if ($p) { return $true }
+  if (-not $IgnorePort) { return (PortUp 19387) }
+  return $false
+}
+
+if (-not $Force -and -not (DshRunning)) {
+  Log ('dsh 未运行（未检测到 "' + $RequireDsh + '" 且 19387 未监听）→ 本次不启动后台。打开 dsh 后 2 分钟内会自动拉起。')
+  exit 0
+}
+if ($Force) { Log '强制模式：忽略 dsh 是否运行' }
 
 if (-not (Ensure-Agent)) { }
 Start-Sleep -Seconds 5
