@@ -1,3 +1,6 @@
+> **关于"时不时弹终端窗口"**：自愈任务若直接跑 `powershell -WindowStyle Hidden`，Windows 会**先创建控制台再隐藏** → 每 2 分钟闪一下。
+> 现在统一用 **`conhost.exe --headless`** 作为任务命令（Win11 的无窗口控制台宿主），实测盯 190 秒跨过两次触发**零窗口**。
+> 登录自启（HKCU Run `mc-stack-logon`）与隧道启动也都是这个方式。
 ## 服务自愈（重要）
 
 整套服务（面板 19390 / 转发 19391 / 派活 19392 / MCP 19395 / shotd / cloudflared 隧道）会因重启、崩溃而消失，
