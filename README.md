@@ -1,3 +1,26 @@
+## 现在的启动方式（2026-10-17 最终版）
+
+**只有一种**：点桌面的「DeepSeek Harness」图标。
+
+```
+点图标 → tools\dsh-launch.cmd
+           ├─ 无窗口启动后台（stack.ps1 -Up：面板 19390 / 转发 19391 / 派活 19392 / MCP 19395 / 隧道）
+           └─ 打开 DeepSeek Harness
+```
+
+- **不做开机自启**（Run 键与计划任务都已删除）；`stack.ps1` 自带 dsh 门槛：检测不到 dsh 就什么都不做。
+- **隧道由 node 看护进程 `tools/tunnel-supervisor.js` 托管**：这台机器上 cloudflared 会被安全软件周期性杀掉（约 1~2 分钟一次），看护会在 2 秒后重启它，实测杀后 20 秒内恢复、公网 200。
+- 全程**无控制台窗口**（`windowsHide` / `--logfile`），桌面不会出现黑窗口。
+
+排障命令：
+
+```powershell
+powershell -File tools\stack.ps1 -Status        # 体检（端口 + 公网）
+powershell -File tools\stack.ps1 -Up            # 缺什么补什么（需 dsh 在跑）
+powershell -File tools\stack.ps1 -Up -Force     # 无视 dsh，强制拉起
+powershell -File tools\watch-windows.ps1        # 盯 3 分钟看有没有窗口冒出来
+Get-Content tools\..\tunnel-supervisor.log -Tail 20   # 看隧道重启记录
+```
 > **关于"时不时弹终端窗口"**：自愈任务若直接跑 `powershell -WindowStyle Hidden`，Windows 会**先创建控制台再隐藏** → 每 2 分钟闪一下。
 > 现在统一用 **`conhost.exe --headless`** 作为任务命令（Win11 的无窗口控制台宿主），实测盯 190 秒跨过两次触发**零窗口**。
 > 登录自启（HKCU Run `mc-stack-logon`）与隧道启动也都是这个方式。
