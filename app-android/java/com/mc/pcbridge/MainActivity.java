@@ -101,6 +101,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Config.load(this);            // 必须最先加载：界面里的 WebSocket 一建好就用地址了
         hideSystemBars();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -123,7 +124,6 @@ public class MainActivity extends Activity {
 
         setContentView(root);
         applyLayout();
-        Config.load(this);
         if (!Config.isConfigured()) {
             ui.postDelayed(this::showSetupDialog, 400);
         } else {

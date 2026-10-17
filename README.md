@@ -1,3 +1,15 @@
+## 服务自愈（重要）
+
+整套服务（面板 19390 / 转发 19391 / 派活 19392 / MCP 19395 / shotd / cloudflared 隧道）会因重启、崩溃而消失，
+表现就是**手机连不上、公网域名返回 530**。用一条命令体检 + 补齐：
+
+```powershell
+powershell -File tools\stack.ps1 -Status   # 只体检
+powershell -File tools\stack.ps1 -Up       # 缺什么补什么（幂等）
+```
+
+已注册计划任务 **mc-stack-watchdog**，每 2 分钟自动跑一次 `-Up`，所以正常情况下它会自己恢复。
+日志：`stack.log`。
 ## 直接下载安装 APK
 
 仓库根目录的 **pc-dsh.apk** 是**占位符版**（不含任何凭据，安全可公开）。安装后**首次运行会弹出设置框**，填上你自己的四项即可：
