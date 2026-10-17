@@ -26,35 +26,46 @@ function PortUp($p) {
   return [bool](Get-NetTCPConnection -State Listen -LocalPort $p -ErrorAction SilentlyContinue)
 }
 
-function Start-Detached([string]$cmdFile) {
+function Start-Detached([string]$scriptFile) {
+  # conhost --headless + powershell -File：Win11 的无窗口控制台，配合 WMI 脱离父进程
+  $psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+  $line  = 'conhost.exe --headless "' + $psExe + '" -NoProfile -ExecutionPolicy Bypass -File "' + $scriptFile + '"'
   $cim = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
-    CommandLine      = ('cmd.exe /c "' + $cmdFile + '"')
+    CommandLine      = $line
     CurrentDirectory = $MC
   }
-  if ($cim.ReturnValue -eq 0) { Log ('  已脱离启动 ' + (Split-Path $cmdFile -Leaf) + ' (PID ' + $cim.ProcessId + ')') }
-  else { Log ('  启动失败 ' + (Split-Path $cmdFile -Leaf) + ' 返回码 ' + $cim.ReturnValue) }
+  if ($cim.ReturnValue -eq 0) { Log ('  已无窗口启动 ' + (Split-Path $scriptFile -Leaf) + ' (PID ' + $cim.ProcessId + ')') }
+  else { Log ('  启动失败 ' + (Split-Path $scriptFile -Leaf) + ' 返回码 ' + $cim.ReturnValue) }
 }
+
+
 
 function Ensure-Agent {
   if (PortUp 19390) { return $true }
-  Start-Detached (Join-Path $MC 'tools\run-agent.cmd')
+  Start-Detached (Join-Path $MC 'tools\run-agent.ps1')
   return $false
 }
 
 function Ensure-Mcp {
   if (PortUp 19395) { return $true }
-  Start-Detached (Join-Path $MC 'tools\run-mcp.cmd')
+  Start-Detached (Join-Path $MC 'tools\run-mcp.ps1')
   return $false
 }
+
+
 
 function Ensure-Tunnel {
   if ((Get-Process cloudflared -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0) { return $true }
-  $cmd = Join-Path $MC 'tools\run-tunnel.cmd'
-  if (-not (Test-Path $cmd)) { Log ('缺少 ' + $cmd); return $false }
-  Start-Detached $cmd
+  $cf  = Join-Path $env:USERPROFILE '.dsh\dsh-pocket\bin\cloudflared.exe'
+  $cfg = Join-Path $env:USERPROFILE '.cloudflared\config.yml'
+  if (-not (Test-Path $cf))  { Log ('缺少 cloudflared: ' + $cf); return $false }
+  if (-not (Test-Path $cfg)) { Log ('缺少隧道配置: ' + $cfg); return $false }
+  $line = 'conhost.exe --headless "' + $cf + '" tunnel --protocol http2 --config "' + $cfg + '" run'
+  $cim = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $line; CurrentDirectory = $MC }
+  if ($cim.ReturnValue -eq 0) { Log ('  已无窗口启动 隧道 (PID ' + $cim.ProcessId + ')') }
+  else { Log ('  隧道启动失败 返回码 ' + $cim.ReturnValue) }
   return $false
 }
-
 function Report {
   $items = [ordered]@{
     'agent 面板 19390' = (PortUp 19390)
@@ -90,7 +101,7 @@ Start-Sleep -Seconds 5
 Start-Sleep -Seconds 8
 if (-not (Get-Process shotd -ErrorAction SilentlyContinue) -and (PortUp 19390)) {
   # agent 正常情况下会自己拉起 shotd；这里只是兜底
-  Start-Detached (Join-Path $MC 'tools\run-shotd.cmd')
+  Start-Detached (Join-Path $MC 'tools\run-shotd.ps1')
 }
 Start-Sleep -Seconds 4
 
